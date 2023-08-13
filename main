@@ -1,0 +1,119 @@
+const { Client } = require("@notionhq/client");
+
+// Initializing a client
+const notion = new Client({
+  auth: "secret_ggrehCPUxgBSMxgcBWzEymqQZ01mlhD2ydLggd0pkEi",
+});
+
+const databaseId = "878004a3ec814e4197fc945fbc1a4c22";
+
+async function getDatabaseItems() {
+  // Get 4 items with status "New" and oldest created time
+  const newItemsResponse = await notion.databases.query({
+    database_id: databaseId,
+    filter: {
+      property: "Status",
+      select: {
+        equals: "New",
+      },
+    },
+    sorts: [
+      {
+        property: "Created Time",
+        direction: "ascending",
+      },
+    ],
+    page_size: 4,
+  });
+
+  const newItems = newItemsResponse.results
+    .map((item) => (item.properties.Word ? item.properties.Word.title[0].plain_text : null))
+    .filter((name) => name !== null);
+  console.log(newItems);
+
+  // Get items with status "Learning" and check if "Last Reviewed" property has a value or not
+  const learningItemsResponse = await notion.databases.query({
+    database_id: databaseId,
+    filter: {
+      property: "Status",
+      select: {
+        equals: "Learning",
+      },
+    },
+    page_size: 4,
+  });
+
+  const learningItems = learningItemsResponse.results;
+  const learningItemsWithLastReviewed = learningItems.filter(
+    (item) => item.properties["Last Reviewed"]
+  );
+  const learningItemsWithoutLastReviewed = learningItems.filter(
+    (item) => !item.properties["Last Reviewed"]
+  );
+
+  // If there are items without a "Last Reviewed" value, get the one with the oldest created time
+  if (learningItemsWithoutLastReviewed.length > 0) {
+    const oldestItem = learningItemsWithoutLastReviewed.reduce((oldest, item) =>
+      item.created_time < oldest.created_time ? item : oldest
+    );
+    console.log(oldestItem.properties.Word.title[0].plain_text);
+  }
+
+  // If there are items with a "Last Reviewed" value, get the one with the biggest difference between created time and last reviewed time
+  if (learningItemsWithLastReviewed.length > 0) {
+    const biggestDifferenceItem = learningItemsWithLastReviewed.reduce(
+      (biggest, item) => {
+        const createdTime = new Date(item.created_time);
+        const lastReviewedTime = new Date(item.properties["Last Reviewed"].date.start);
+        const difference = lastReviewedTime - createdTime;
+        return difference > biggest.difference ? { item, difference } : biggest;
+      },
+      { item: null, difference: -Infinity }
+    ).item;
+    console.log(biggestDifferenceItem.properties.Word.title[0].plain_text);
+  }
+
+// Get items with status "I know" and check if "Last Reviewed" property has a value or not
+const iKnowItemsResponse = await notion.databases.query({
+database_id: databaseId,
+filter: {
+property: "Status",
+select: {
+equals: "I know",
+},
+},
+page_size: 2,
+});
+
+const iKnowItems = iKnowItemsResponse.results;
+const iKnowItemsWithLastReviewed = iKnowItems.filter(
+(item) => item.properties["Last Reviewed"]
+);
+const iKnowItemsWithoutLastReviewed = iKnowItems.filter(
+(item) => !item.properties["Last Reviewed"]
+);
+
+// If there are items without a "Last Reviewed" value, get the one with the oldest created time
+if (iKnowItemsWithoutLastReviewed.length > 0) {
+const oldestItem = iKnowItemsWithoutLastReviewed.reduce((oldest, item) =>
+item.created_time < oldest.created_time ? item : oldest
+);
+console.log(oldestItem.properties.Word.title[0].plain_text);
+}
+
+// If there are items with a "Last Reviewed" value, get the one with the biggest difference between created time and last reviewed time
+if (iKnowItemsWithLastReviewed.length > 0) {
+const biggestDifferenceItem = iKnowItemsWithLastReviewed.reduce(
+(biggest, item) => {
+const createdTime = new Date(item.created_time);
+const lastReviewedTime = new Date(item.properties["Last Reviewed"].date.start);
+const difference = lastReviewedTime - createdTime;
+return difference > biggest.difference ? { item, difference } : biggest;
+},
+{ item: null, difference: -Infinity }
+).item;
+console.log(biggestDifferenceItem.properties.Word.title[0].plain_text);
+}
+}
+
+getDatabaseItems();
